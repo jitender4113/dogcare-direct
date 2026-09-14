@@ -1,5 +1,4 @@
-const BASE_URL = "http://localhost:5001/api";
-
+const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 /**
  * Shared fetch wrapper: prefixes BASE_URL, sends/receives JSON, attaches
  * a bearer token if one is in localStorage (for your auth-protected

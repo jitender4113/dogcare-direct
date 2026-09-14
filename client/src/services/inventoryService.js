@@ -20,6 +20,23 @@ export async function createInventoryItem(item) {
     return data.item;
 }
 
+/** PUT /api/inventory/:id — updates an existing inventory item. */
+export async function updateInventoryItem(id, item) {
+    const data = await apiFetch(`/inventory/${id}`, {
+        method: "PUT",
+        body: item,
+    });
+    return data.item;
+}
+
+/** DELETE /api/inventory/:id — deletes an inventory item. */
+export async function deleteInventoryItem(id) {
+    const data = await apiFetch(`/inventory/${id}`, {
+        method: "DELETE",
+    });
+    return data.item;
+}
+
 /** POST /api/categories — creates a new category. */
 export async function createCategory(name) {
     const data = await apiFetch("/categories", {

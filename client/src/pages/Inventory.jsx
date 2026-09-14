@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import AddItemForm from "../components/AddItemForm";
+import EditItemForm from "../components/EditItemForm";
+import DeleteItemModal from "../components/DeleteItemModal";
 
 import { getInventory, subscribeToInventory } from "../services/inventoryService";
 
@@ -17,6 +19,8 @@ function Inventory({ activePage = "inventory", onNavigate }) {
     const [status, setStatus] = useState("loading"); // loading | ready | error
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+    const [deletingItem, setDeletingItem] = useState(null);
 
     useEffect(() => {
         const unsubscribe = subscribeToInventory(
@@ -96,6 +100,7 @@ function Inventory({ activePage = "inventory", onNavigate }) {
                                     <th className="px-5 py-4">Quantity</th>
                                     <th className="px-5 py-4">Min. Required</th>
                                     <th className="px-5 py-4">Status</th>
+                                    <th className="px-5 py-4">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -121,6 +126,24 @@ function Inventory({ activePage = "inventory", onNavigate }) {
                                                 </span>
                                             )}
                                         </td>
+                                        <td className="px-5 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => setEditingItem(item)}
+                                                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-[#193024] transition hover:border-[#3EAA62] hover:text-[#3EAA62]"
+                                                >
+                                                    <Pencil size={13} strokeWidth={2.25} />
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeletingItem(item)}
+                                                    className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-[#193024] transition hover:border-red-400 hover:text-red-500"
+                                                >
+                                                    <Trash2 size={13} strokeWidth={2.25} />
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -143,6 +166,29 @@ function Inventory({ activePage = "inventory", onNavigate }) {
                     onCreated={async () => {
                         await refresh();
                         setShowAddForm(false);
+                    }}
+                />
+            )}
+
+            {editingItem && (
+                <EditItemForm
+                    item={editingItem}
+                    inventoryCategories={inventoryCategories}
+                    onClose={() => setEditingItem(null)}
+                    onUpdated={async () => {
+                        await refresh();
+                        setEditingItem(null);
+                    }}
+                />
+            )}
+
+            {deletingItem && (
+                <DeleteItemModal
+                    item={deletingItem}
+                    onClose={() => setDeletingItem(null)}
+                    onDeleted={async () => {
+                        await refresh();
+                        setDeletingItem(null);
                     }}
                 />
             )}
