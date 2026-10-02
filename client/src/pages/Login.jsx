@@ -1,8 +1,9 @@
+// client/src/pages/Login.jsx
 import { useState } from "react";
 import { login as authLogin } from "../services/authService";
 import { login as persistSession } from "../utils/auth";
 
-function Login({ onNavigate }) {
+function Login({ onNavigate, onLogin }) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [errors, setErrors] = useState({});
@@ -28,6 +29,7 @@ function Login({ onNavigate }) {
         try {
             const { token, user } = await authLogin(email.trim(), password);
             persistSession(token, user);
+            onLogin?.();
             onNavigate?.("dashboard");
         } catch (error) {
             setSubmitError(error.message || "Login failed");
@@ -110,6 +112,14 @@ function Login({ onNavigate }) {
                     className="mt-5 w-full text-center text-sm font-semibold text-[#7D887F] transition hover:text-[#3EAA62]"
                 >
                     ← Browse Past Orders without signing in
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => onNavigate?.("signup")}
+                    className="mt-3 w-full text-center text-sm font-semibold text-[#3EAA62] transition hover:opacity-80"
+                >
+                    Don't have an account? Sign Up
                 </button>
             </div>
         </div>
