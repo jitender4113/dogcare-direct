@@ -1,10 +1,11 @@
-import { LayoutDashboard, Package, Gift, ClipboardList, Users, BarChart3, Plus, Heart, FileText } from "lucide-react";
+import { LayoutDashboard, Package, Gift, ClipboardList, Users, BarChart3, Plus, Heart, FileText, LogOut } from "lucide-react";
 import NavItem from "./NavItem";
+import { getCurrentUser, getStoredUser, logout } from "../utils/auth";
 
 const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, view: "dashboard" },
     { name: "Inventory", icon: Package, view: "inventory" },
-    { name: "Donations", icon: Gift },
+    { name: "Donations", icon: Gift, view: "donations" },
     { name: "Requests", icon: ClipboardList },
     { name: "Users", icon: Users },
     { name: "Reports", icon: BarChart3 },
@@ -17,6 +18,14 @@ const quickActions = [
 ];
 
 function Sidebar({ isOpen = false, onClose = () => {}, activePage = "dashboard", onNavigate }) {
+    const session = getCurrentUser();
+    const profile = getStoredUser();
+
+    function handleLogout() {
+        logout();
+        onNavigate?.("dashboard");
+    }
+
     return (
         <>
             {/* Mobile scrim */}
@@ -85,15 +94,27 @@ function Sidebar({ isOpen = false, onClose = () => {}, activePage = "dashboard",
                         <p className="text-xs text-gray-500">love &amp; care ❤️</p>
                     </div>
 
-                    <div className="mt-5 flex items-center gap-3 border-t pt-4">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#E5F6E7] text-sm">
-                            🧑‍💼
+                    {session && (
+                        <div className="mt-5 flex items-center gap-3 border-t pt-4">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E5F6E7] text-sm">
+                                🧑‍💼
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-bold text-gray-700">
+                                    {profile?.name || "Account"}
+                                </p>
+                                <p className="text-xs capitalize text-gray-400">{session.role}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleLogout}
+                                aria-label="Log out"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-red-50 hover:text-red-500"
+                            >
+                                <LogOut size={15} strokeWidth={2.25} />
+                            </button>
                         </div>
-                        <div>
-                            <p className="text-sm font-bold text-gray-700">Admin</p>
-                            <p className="text-xs text-gray-400">Shelter Admin</p>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </aside>
         </>

@@ -40,7 +40,9 @@ function Dashboard({ activePage = "dashboard", onNavigate }) {
     // Category order comes from the backend's own inventoryCategories
     // object, so a category/subcategory added on the server shows up
     // here automatically without touching this file.
-    const categoryNames = Object.keys(inventoryCategories);
+    const categoryNames = Object.keys(inventoryCategories).filter((category) =>
+        categorySummary.some((summary) => summary.category === category)
+    );
 
     return (
         <div className="min-h-screen bg-[#F7FAF5] text-[#193024]">

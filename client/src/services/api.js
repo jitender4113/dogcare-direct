@@ -1,4 +1,5 @@
-const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+const BASE_URL = "http://localhost:5001/api";
+
 /**
  * Shared fetch wrapper: prefixes BASE_URL, sends/receives JSON, attaches
  * a bearer token if one is in localStorage (for your auth-protected
@@ -10,6 +11,7 @@ export async function apiFetch(path, options = {}) {
 
     const response = await fetch(`${BASE_URL}${path}`, {
         ...options,
+        cache: "no-store",
         headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

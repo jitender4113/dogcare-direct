@@ -5,7 +5,10 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Inventory = require("./models/Inventory");
 const Category = require("./models/Category");
+const Donation = require("./models/Donation");
 const seedCategories = require("./constants/inventoryCategories");
+const authMiddleware = require("./middleware/authMiddleware");
+const adminMiddleware = require("./middleware/adminMiddleware");
 require("dotenv").config();
 
 const app = express();
@@ -54,6 +57,34 @@ const User = require("./models/User");
 app.post("/api/users", async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
+        // Clean 400s for missing fields, instead of letting bcrypt/Mongoose
+        // throw and fall through to a generic 500 below. `role` is
+        // intentionally never read from req.body anywhere in this route —
+        // the schema default ("user") is the only thing that can apply.
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                message: "Name is required",
+            });
+        }
+
+        if (!email || !email.trim()) {
+            return res.status(400).json({
+                message: "Email is required",
+            });
+        }
+
+        if (!password) {
+            return res.status(400).json({
+                message: "Password is required",
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                message: "Password must be at least 6 characters",
+            });
+        }
 
         // Check if email already exists
         const existingUser = await User.findOne({ email });
@@ -151,7 +182,7 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 // Create a new category
-app.post("/api/categories", async (req, res) => {
+app.post("/api/categories", authMiddleware, async (req, res) => {
     try {
         const { name } = req.body;
 
@@ -186,7 +217,7 @@ app.post("/api/categories", async (req, res) => {
 });
 
 // Add a subcategory to an existing category
-app.post("/api/categories/:name/subcategories", async (req, res) => {
+app.post("/api/categories/:name/subcategories", authMiddleware, async (req, res) => {
     try {
         const { name } = req.params;
         const { subCategory } = req.body;
@@ -227,7 +258,7 @@ app.post("/api/categories/:name/subcategories", async (req, res) => {
     }
 });
 
-app.post("/api/inventory", async(req,res)=>{
+app.post("/api/inventory", authMiddleware, async(req,res)=>{
     try {
         const {
             name,
@@ -276,7 +307,7 @@ app.post("/api/inventory", async(req,res)=>{
     }
 })
 
-app.get("/api/inventory", async(req,res) =>{
+app.get("/api/inventory", authMiddleware, async(req,res) =>{
     try {
         const items = await Inventory.find();
         const inventoryCategories = await getInventoryCategoriesMap();
@@ -381,7 +412,7 @@ app.get("/api/inventory", async(req,res) =>{
     }
 })
 
-app.put("/api/inventory/:id", async (req,res) => {
+app.put("/api/inventory/:id", authMiddleware, async (req,res) => {
     try{
         const {name, category, subCategory, quantity, minimumRequired, unit} = req.body;
 
@@ -431,7 +462,7 @@ app.put("/api/inventory/:id", async (req,res) => {
     }
 });
 
-app.delete("/api/inventory/:id", async(req,res) =>{
+app.delete("/api/inventory/:id", authMiddleware, async(req,res) =>{
     try {
         const deletedItem = await Inventory.findByIdAndDelete(req.params.id);
 
@@ -452,6 +483,141 @@ app.delete("/api/inventory/:id", async(req,res) =>{
         });
     }
 })
+
+const ALLOWED_DONATION_STATUSES = ["Pending", "Confirmed", "Delivered"];
+
+// Create a new donation/order
+// Admin-only: create a new donation/order
+app.post("/api/donations", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { donorName, shelterName, items, amount, date, status } = req.body;
+
+        if (!donorName || !donorName.trim()) {
+            return res.status(400).json({
+                message: "Donor name is required",
+            });
+        }
+
+        if (!shelterName || !shelterName.trim()) {
+            return res.status(400).json({
+                message: "Shelter name is required",
+            });
+        }
+
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                message: "At least one donated item is required",
+            });
+        }
+
+        const cleanedItems = [];
+
+        for (const item of items) {
+            if (!item || !item.name || !item.name.trim()) {
+                return res.status(400).json({
+                    message: "Each donated item must have a name",
+                });
+            }
+
+            const quantity = Number(item.quantity);
+            if (Number.isNaN(quantity) || quantity <= 0) {
+                return res.status(400).json({
+                    message: `Item "${item.name}" must have a quantity greater than 0`,
+                });
+            }
+
+            cleanedItems.push({
+                name: item.name.trim(),
+                quantity,
+                unit: item.unit ? String(item.unit).trim() : "",
+            });
+        }
+
+        const numericAmount = Number(amount);
+        if (amount === undefined || amount === null || Number.isNaN(numericAmount) || numericAmount < 0) {
+            return res.status(400).json({
+                message: "A valid donation amount is required",
+            });
+        }
+
+        if (status && !ALLOWED_DONATION_STATUSES.includes(status)) {
+            return res.status(400).json({
+                message: `Invalid status. Allowed values: ${ALLOWED_DONATION_STATUSES.join(", ")}`,
+            });
+        }
+
+        const donation = new Donation({
+            donorName: donorName.trim(),
+            shelterName: shelterName.trim(),
+            items: cleanedItems,
+            amount: numericAmount,
+            date: date ? new Date(date) : undefined,
+            status: status || "Pending",
+        });
+
+        const savedDonation = await donation.save();
+
+        res.status(201).json({
+            message: "Donation created successfully",
+            donation: savedDonation,
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to create donation",
+            error: error.message,
+        });
+    }
+});
+
+// Public donation history for the Past Orders page — only public-safe
+// fields are selected, so there is nothing sensitive to leak even if the
+// schema grows later.
+app.get("/api/donations", async (req, res) => {
+    try {
+        const donations = await Donation.find()
+            .select("donorName shelterName items amount date status createdAt")
+            .sort({ date: -1, createdAt: -1 });
+
+        res.status(200).json({
+            message: "Donations fetched successfully",
+            donations,
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to fetch donations",
+            error: error.message,
+        });
+    }
+});
+
+// Summary stats for the Past Orders page
+app.get("/api/donations/summary", async (req, res) => {
+    try {
+        const donations = await Donation.find().select("items shelterName");
+
+        const totalDonations = donations.length;
+
+        const totalItemsDonated = donations.reduce(
+            (sum, donation) =>
+                sum + donation.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+            0
+        );
+
+        const sheltersHelped = new Set(donations.map((donation) => donation.shelterName)).size;
+
+        res.status(200).json({
+            message: "Donation summary fetched successfully",
+            totalDonations,
+            totalItemsDonated,
+            sheltersHelped,
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to fetch donation summary",
+            error: error.message,
+        });
+    }
+});
 
 // Connect MongoDB and start server
 mongoose
